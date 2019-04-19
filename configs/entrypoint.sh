@@ -1,35 +1,25 @@
 #!/bin/sh
-
-#CREATE THE USER AND THE HOME FOLDER
-addgroup -g $FTP_UID -S $FTP_USER
-if [[ "$FTP_HOME" != "default" ]]; then
-  adduser -u $FTP_UID -D -G $FTP_USER -h $FTP_HOME -s /bin/false  $FTP_USER
-  chown $FTP_USER:$FTP_USER $FTP_HOME -R
-else
-  adduser -u $FTP_UID -D -G $FTP_USER -h /home/$FTP_USER -s /bin/false  $FTP_USER
-  chown $FTP_USER:$FTP_USER /home/$FTP_USER/ -R
-fi
+set -xeuo pipefail
+IFS=$'\n\t'
 
 #UPDATE PASSWORD
-echo "$FTP_USER:$FTP_PASS" | /usr/sbin/chpasswd
+echo "vsftp:${FTP_PASS}" | /usr/sbin/chpasswd -e
 
-cp /etc/vsftpd/vsftpd.conf_or /etc/vsftpd/vsftpd.conf
-
-if [[ "$PASV_ENABLE" == "YES" ]]; then
+if [[ "${PASV_ENABLE}" == "YES" ]]; then
   echo "PASV is enabled"
   echo "pasv_enable=YES" >> /etc/vsftpd/vsftpd.conf
-  echo "pasv_max_port=$PASV_MAX" >> /etc/vsftpd/vsftpd.conf
-  echo "pasv_min_port=$PASV_MIN" >> /etc/vsftpd/vsftpd.conf
-  echo "pasv_address=$PASV_ADDRESS" >> /etc/vsftpd/vsftpd.conf
+  echo "pasv_max_port=${PASV_MAX}" >> /etc/vsftpd/vsftpd.conf
+  echo "pasv_min_port=${PASV_MIN}" >> /etc/vsftpd/vsftpd.conf
+  echo "pasv_address=${PASV_ADDRESS}" >> /etc/vsftpd/vsftpd.conf
 else
   echo "pasv_enable=NO" >> /etc/vsftpd/vsftpd.conf
 fi
 
-if [[ "$ONLY_UPLOAD" == "YES" ]]; then
+if [[ "${ONLY_UPLOAD}" == "YES" ]]; then
   echo "This FTP server only accepts upload."
   echo "download_enable=NO" >> /etc/vsftpd/vsftpd.conf
   echo "ftpd_banner=Welcome to FTP Server. Note: this FTP server only accepts upload." >> /etc/vsftpd/vsftpd.conf
-elif [[ "$ONLY_DOWNLOAD" == "YES" ]]; then
+elif [[ "${ONLY_DOWNLOAD}" == "YES" ]]; then
   echo "This FTP server only accepts download."
   echo "ftpd_banner=Welcome to FTP Server. Note: this FTP server only accepts download." >> /etc/vsftpd/vsftpd.conf
   sed -i 's/write_enable=YES/write_enable=NO/g' /etc/vsftpd/vsftpd.conf
@@ -37,6 +27,28 @@ else
   echo "ftpd_banner=Welcome to FTP Server" >> /etc/vsftpd/vsftpd.conf
 fi
 
-echo "local_umask=$UMASK" >> /etc/vsftpd/vsftpd.conf
+echo "local_umask=0640
+local_enable=YES
+chroot_local_user=YES
+background=YES
+dirmessage_enable=YES
+write_enable=YES
+passwd_chroot_enable=NO
+seccomp_sandbox=NO
+vsftpd_log_file=/var/log/vsftpd.log
+log_ftp_protocol=YES
+local_root=/volume
+chroot_local_user=YES
+chroot_list_enable=NO
+allow_writeable_chroot=YES
+max_clients=${MAX_CLIENTS}
+max_per_ip=${MAX_PER_IP}
+listen_ipv6=${LISTEN_IPV6}
+file_open_mode=${FILE_OPEN_MODE}" >> /etc/vsftpd/vsftpd.conf
+
+sed -i "s/anonymous_enable=YES/anonymous_enable=${ANONYMOUS_ENABLE}/" /etc/vsftpd/vsftpd.conf
+
+cat /etc/vsftpd/vsftpd.conf|grep -v '^#'
 
 /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf
+tail -F /var/log/vsftpd.log

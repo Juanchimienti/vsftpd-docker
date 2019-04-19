@@ -1,23 +1,29 @@
 version: '2'
 services:
-
     instance1-vsftpd:
-      image: fikipollo/vsftpd
+      build : .
       container_name: instance1-vsftpd
+      ports:
+        - "8021:21"
       environment:
-        - FTP_USER=ftpuser
-        - FTP_PASS=supersecret
-        - ONLY_UPLOAD=NO
+        - FTP_PASS=$$5$$mDcjdVJpbdsVcP0h$$PGXb4.fi25eXkuod5PxZ0nX1FfMHpjo8ynt5TxCw8mD
         - PASV_ENABLE=NO
+        - ONLY_UPLOAD=NO
+        - ONLY_DOWNLOAD=NO
+        - MAX_CLIENTS=100
+        - MAX_PER_IP=50
+        - WRITE_ENABLE=yes
+        - LISTEN_IPV6=no
+        - SECCOMP_SANDBOX=NO
+        - ANONYMOUS_ENABLE=NO
+        - FILE_OPEN_MODE=0660
       depends_on:
         - instance1-vsftpd-data
       volumes_from:
         - instance1-vsftpd-data
-      ports:
-        - "8021:21"
 
     instance1-vsftpd-data:
       image: busybox
       container_name: instance1-vsftpd-data
       volumes:
-        - /home/foo/dockers/vsftpd/data:/home
+        - /tmp:/home
